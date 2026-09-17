@@ -1,1 +1,1 @@
-app/page.tsx와 components/parking-map.tsx에 formatDateTime/formatAddress가 각각 정의되어 있어 중복된다. 공유 유틸(예: lib/parking-enforcement.ts)로 추출할 수 있다.
+components/parking-map.tsx와 각 목록 컴포넌트(enforcement-history-column.tsx의 formatDateTime, realtime-detection-column.tsx의 formatDetectedTime)에 날짜·시간 포맷 함수가 각각 정의되어 있어 중복된다. 공유 유틸(예: lib/format.ts)로 추출할 수 있다.

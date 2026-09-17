@@ -1,5 +1,8 @@
 # 내 위치·단속 위치 지도 표시
 
+> **superseded by [three-source-parking-view](../three-source-parking-view/spec.md).**
+> 지도·목록 배치는 그 스펙을 따른다. 이 파일은 과거 기록으로만 남긴다.
+
 ## 사용자 결과
 
 [nearby-enforcement-history](../nearby-enforcement-history/spec.md)에서 조회한
