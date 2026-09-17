@@ -39,3 +39,18 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - 자동 코드 리뷰는 최대 1회, 가장 낮은 강도(`code-review low`)로만 돌린다. 리뷰어를 못 부르면 그 사실만 적고 완료로 본다.
 - 지적 중 스펙의 수용 기준을 깨거나 주 경로가 실제로 깨지는 것만 고친다. 나머지는 `docs/follow-ups/`에 한 줄로 남긴다. 재리뷰는 하지 않는다.
 - 스펙이 요구하지 않은 보안 하드닝·엣지케이스·성능 방어는 범위 밖이다.
+
+<!-- BEGIN:leaflet-agent-context -->
+
+# 지도(Leaflet) 관련 작업 전 확인
+
+지도 표시에는 Leaflet + react-leaflet(OpenStreetMap 타일, API 키 불필요)을 쓴다.
+검증된 공식 벤더 스킬은 없으므로, 지도 관련 코드를 작성하기 전에 아래 공식 문서를
+확인한다.
+
+- Leaflet: https://leafletjs.com/reference.html
+- react-leaflet: https://react-leaflet.js.org/
+
+설치된 버전과 문서 내용이 다르면 문서를 우선 확인하고 설치된 버전에 맞게 조정한다.
+
+<!-- END:leaflet-agent-context -->
