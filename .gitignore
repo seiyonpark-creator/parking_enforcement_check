@@ -50,6 +50,3 @@ next-env.d.ts
 
 # worktree
 .claude/worktrees
-
-# 서울시 공공데이터 원본 CSV (용량이 커서 커밋하지 않고, scripts/fetch-parking-data.mjs로 재생성한다)
-/data/parking-enforcement/*.csv
