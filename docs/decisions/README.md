@@ -4,3 +4,5 @@
 
 - [ui-composition](ui-composition.md) — Read when choosing UI components, page composition, visual tokens, or custom interface boundaries.
 - [parking-data-source](parking-data-source.md) — Read when choosing or changing the source of parking enforcement data, or revisiting the real-time promise in PRODUCT.md.
+- [map-library](map-library.md) — Read when adding or changing map display (library, tile provider, API key requirements).
+- [reverse-geocoding](reverse-geocoding.md) — Read when converting coordinates to a human-readable address, or changing that service.
