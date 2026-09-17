@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   MapPin,
   NavigationArrow,
@@ -20,6 +21,22 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import type { NearbyEnforcement } from "@/lib/parking-enforcement";
+import {
+  NUMBERED_MARKER_CLASS,
+  NUMBERED_MARKER_SIZE_PX,
+} from "@/lib/numbered-marker";
+import {
+  CURRENT_LOCATION_BORDER,
+  CURRENT_LOCATION_BORDER_WIDTH_PX,
+  CURRENT_LOCATION_FILL,
+  CURRENT_LOCATION_SIZE_PX,
+} from "@/lib/current-location-marker";
+
+// Leaflet은 window/document에 의존하므로 클라이언트에서만 불러온다.
+const ParkingMap = dynamic(() => import("@/components/parking-map"), {
+  ssr: false,
+  loading: () => <Skeleton className="h-72 w-full sm:h-80" />,
+});
 
 type State =
   | { status: "requesting-location" }
@@ -64,12 +81,21 @@ function formatCoords(coords: Coords): string {
   return `위도 ${coords.lat.toFixed(6)}, 경도 ${coords.lng.toFixed(6)}`;
 }
 
+async function fetchAddress(lat: number, lng: number): Promise<string | null> {
+  const response = await fetch(`/api/reverse-geocode?lat=${lat}&lng=${lng}`);
+  if (!response.ok) return null;
+  const data: { address?: string | null } = await response.json();
+  return data.address ?? null;
+}
+
 function requestLocation(
   setState: (state: State) => void,
-  setCoords: (coords: Coords | null) => void
+  setCoords: (coords: Coords | null) => void,
+  setAddress: (address: string | null) => void
 ) {
   setState({ status: "requesting-location" });
   setCoords(null);
+  setAddress(null);
 
   if (typeof navigator === "undefined" || !navigator.geolocation) {
     setState({ status: "unsupported" });
@@ -81,6 +107,16 @@ function requestLocation(
       const { latitude, longitude } = position.coords;
       setCoords({ lat: latitude, lng: longitude });
       setState({ status: "loading" });
+
+      // 주소 표시는 단속 이력 조회와 독립적으로 진행하고, 실패해도 좌표로 대신 보여준다.
+      fetchAddress(latitude, longitude)
+        .then((address) => {
+          setAddress(address ?? formatCoords({ lat: latitude, lng: longitude }));
+        })
+        .catch(() => {
+          setAddress(formatCoords({ lat: latitude, lng: longitude }));
+        });
+
       try {
         const data = await fetchNearbyEnforcements(latitude, longitude);
         setState({
@@ -112,10 +148,11 @@ function requestLocation(
 export default function Home() {
   const [state, setState] = useState<State>({ status: "requesting-location" });
   const [coords, setCoords] = useState<Coords | null>(null);
+  const [address, setAddress] = useState<string | null>(null);
 
   // 최초 진입 시 한 번만 자동으로 위치 확인을 시작한다.
   useEffect(() => {
-    requestLocation(setState, setCoords);
+    requestLocation(setState, setCoords, setAddress);
   }, []);
 
   return (
@@ -123,8 +160,16 @@ export default function Home() {
       <div className="flex w-full max-w-xl flex-col gap-6">
         {coords && (
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <MapPin className="size-4" />
-            현재 위치: {formatCoords(coords)}
+            <span
+              className="inline-block shrink-0 rounded-full"
+              style={{
+                width: CURRENT_LOCATION_SIZE_PX,
+                height: CURRENT_LOCATION_SIZE_PX,
+                backgroundColor: CURRENT_LOCATION_FILL,
+                border: `${CURRENT_LOCATION_BORDER_WIDTH_PX}px solid ${CURRENT_LOCATION_BORDER}`,
+              }}
+            />
+            현재 위치: {address ?? "주소 확인 중..."}
           </div>
         )}
 
@@ -167,7 +212,7 @@ export default function Home() {
               시도해 주세요.
             </AlertDescription>
             <div className="col-start-2 mt-2">
-              <Button size="sm" onClick={() => requestLocation(setState, setCoords)}>
+              <Button size="sm" onClick={() => requestLocation(setState, setCoords, setAddress)}>
                 다시 시도
               </Button>
             </div>
@@ -190,11 +235,15 @@ export default function Home() {
             <AlertTitle>문제가 발생했습니다</AlertTitle>
             <AlertDescription>{state.message}</AlertDescription>
             <div className="col-start-2 mt-2">
-              <Button size="sm" onClick={() => requestLocation(setState, setCoords)}>
+              <Button size="sm" onClick={() => requestLocation(setState, setCoords, setAddress)}>
                 다시 시도
               </Button>
             </div>
           </Alert>
+        )}
+
+        {state.status === "success" && coords && (
+          <ParkingMap lat={coords.lat} lng={coords.lng} results={state.results} />
         )}
 
         {state.status === "success" && state.results.length === 0 && (
@@ -223,6 +272,15 @@ export default function Home() {
                 <CardHeader>
                   <CardTitle className="flex items-start justify-between gap-2">
                     <span className="flex items-center gap-1.5">
+                      <span
+                        className={`${NUMBERED_MARKER_CLASS} shrink-0`}
+                        style={{
+                          width: NUMBERED_MARKER_SIZE_PX,
+                          height: NUMBERED_MARKER_SIZE_PX,
+                        }}
+                      >
+                        {index + 1}
+                      </span>
                       <MapPin className="size-4 text-muted-foreground" />
                       {formatAddress(record)}
                     </span>
