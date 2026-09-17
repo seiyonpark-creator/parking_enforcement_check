@@ -4,6 +4,7 @@
 
 - 지금 이 순간의 단속 여부를 알려주는 실시간 공개 API는 확보하지 않는다. 대신 서울시 불법주정차 단속 정보(OA-22190, 서울 열린데이터광장)의 과거 단속 이력 CSV를 데이터 출처로 삼는다.
 - 실시간·예정 단속 안내는 후속 과제로 미룬다. PRODUCT.md의 "실시간 정보로 단속 위험을 미리 파악"이라는 약속은 이 결정이 반영된 뒤 다시 검토해야 한다.
+- OA-22190 CSV는 로컬에 미리 받아둔 파일이 아니라, 서버가 첫 요청 시점에 원본 다운로드 URL에서 직접 받아 메모리에 캐시한다([fixed-cctv-source](fixed-cctv-source.md), [realtime-detection-source](realtime-detection-source.md)와 같은 "런타임 fetch + 캐시" 방식).
 
 ## Boundaries
 
@@ -24,6 +25,12 @@
 - `OA-20471`(불법주정차/전용차로 위반 단속 CCTV 위치정보): 첫 조사 때는 "다운로드 가능한 파일 없음"으로 봤으나, 이는 파일 탭만 확인한 오류였다. 2026-09-17 재확인 결과 표준 Open API(`TbOpendataFixedcctv`, 인증키 기반)가 실제로 동작하며, 샘플키로 호출해 전체 4,667건의 고정형 CCTV 위치를 정상 응답으로 받았다. 인증키는 서울 열린데이터광장 회원가입 후 마이페이지에서 즉시 신청하는 자가발급 방식으로 보이며, t-data.seoul.go.kr처럼 접근 승인 범위가 불명확한 별도 포털이 아니다. 다만 응답 필드(`FIX_CCTV_ADDR`, `LAT`, `LOT`, `CGG_CD`, `CRDN_BRNCH_NM`, `GRNDS_SE`)는 상시 단속 카메라의 설치 위치일 뿐, 그 지점에서 지금 이 순간 단속이 진행 중인지는 알려주지 않는다. 갱신 주기도 분기 1회(최근 갱신 2026-07-01)로, 카메라 설치 현황이 바뀔 때만 갱신되는 정적 정보에 가깝다.
 
 확실히 확보 가능하고 "지금 단속 중인지"에 실제로 답하는 데이터(t-data.seoul.go.kr)를 찾긴 했지만, 커버리지가 서울 5개 지점에 불과해 이번 서비스의 주 데이터 출처로 쓰기엔 너무 좁다. 대부분의 위치에서 "데이터 없음"이 나올 텐데, 이를 "지금은 안전하다"로 오해할 위험이 커서 아직 채택하지 않는다. 첫 결과물은 계속 "이 근처에 최근 단속 이력이 있는지"로 약속을 좁힌 상태를 유지한다. OA-20471(상시 단속 카메라 위치)과 t-data.seoul.go.kr(진짜 실시간이지만 극히 일부 지점)은 둘 다 "후속 검토 대상"으로 남긴다.
+
+## 배포 시 로컬 파일 대신 런타임 fetch
+
+첫 파일럿에서는 `scripts/fetch-parking-data.mjs`로 미리 받아둔 CSV를 `data/parking-enforcement/2025-q4.csv`에 두고, 용량이 커서(약 54MB) `.gitignore`로 커밋하지 않았다. 이 파일은 Vercel 배포본에는 애초에 존재하지 않아, 배포 후 "최근 분기 단속 이력" 목록이 항상 "불러오지 못했습니다" 오류를 냈다(2026-09-17, 사용자 리포트로 확인).
+
+로컬 파일을 다시 커밋하는 대신, `lib/parking-enforcement.ts`가 [fixed-cctv-source](fixed-cctv-source.md)·[realtime-detection-source](realtime-detection-source.md)와 같은 방식으로 첫 요청 때 원본 URL에서 직접 받아 메모리에 캐시하도록 바꿨다. 로컬 개발과 배포 환경의 동작이 갈라지는 원인 자체를 없앤다. `scripts/fetch-parking-data.mjs`와 `data/` 디렉터리, 관련 `.gitignore` 규칙은 더 이상 필요하지 않아 제거했다.
 
 ## Reconsider when
 

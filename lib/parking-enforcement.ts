@@ -1,10 +1,12 @@
 import "server-only";
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { withinRadius } from "@/lib/geo";
 
 // 서울시 불법주정차 단속 정보(OA-22190, 2025 Q4)를 읽어 반경 검색을 제공한다.
 // 데이터 출처와 "이력 데이터를 쓰는 이유"는 docs/decisions/parking-data-source.md 참고.
+//
+// 로컬에 미리 받아둔 파일이 아니라, 서버가 첫 요청 때 원본 CSV를 직접 내려받아
+// 메모리에 캐시한다(배포 환경에 파일을 별도로 올릴 필요가 없다). 그 이유는
+// docs/decisions/parking-data-source.md의 "배포 시 로컬 파일 대신 런타임 fetch" 참고.
 
 export type EnforcementRecord = {
   date: string; // "20251001" 형태의 단속일
@@ -21,12 +23,11 @@ export type NearbyEnforcement = EnforcementRecord & {
 
 export const DEFAULT_RADIUS_METERS = 300;
 
-const DATA_FILE = path.join(
-  process.cwd(),
-  "data",
-  "parking-enforcement",
-  "2025-q4.csv"
-);
+const DOWNLOAD_URL =
+  "https://datafile.seoul.go.kr/bigfile/iot/inf/nio_download.do?&useCache=false";
+const REFERER_URL = "https://data.seoul.go.kr/dataList/OA-22190/F/1/datasetView.do";
+// seq=15 는 2025년 10~12월(4분기) 파일을 가리킨다. 다음 분기가 열리면 이 값을 갱신한다.
+const FORM_BODY = "infId=OA-22190&seq=15&infSeq=1";
 
 function splitCsvLine(line: string): string[] {
   const out: string[] = [];
@@ -50,7 +51,20 @@ function splitCsvLine(line: string): string[] {
 }
 
 async function loadRecords(): Promise<EnforcementRecord[]> {
-  const raw = await fs.readFile(DATA_FILE, "utf-8");
+  const response = await fetch(DOWNLOAD_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Referer: REFERER_URL,
+    },
+    body: FORM_BODY,
+  });
+
+  if (!response.ok) {
+    throw new Error(`서울시 불법주정차 단속 정보 다운로드 실패: HTTP ${response.status}`);
+  }
+
+  const raw = await response.text();
   const lines = raw.split("\n");
   const records: EnforcementRecord[] = [];
 
@@ -73,7 +87,8 @@ async function loadRecords(): Promise<EnforcementRecord[]> {
   return records;
 }
 
-// next dev의 Fast Refresh로 모듈이 다시 평가돼도 파싱을 반복하지 않도록 globalThis에 캐시한다.
+// 분기 1회만 갱신되는 데이터라, 서버가 한 번 받아 메모리에 캐시해두고 재사용한다.
+// (next dev의 Fast Refresh로 모듈이 다시 평가돼도 다운로드를 반복하지 않는다.)
 const globalForParkingData = globalThis as unknown as {
   __parkingRecordsPromise?: Promise<EnforcementRecord[]>;
 };
@@ -81,7 +96,7 @@ const globalForParkingData = globalThis as unknown as {
 function getRecords(): Promise<EnforcementRecord[]> {
   if (!globalForParkingData.__parkingRecordsPromise) {
     globalForParkingData.__parkingRecordsPromise = loadRecords().catch((error) => {
-      // 실패한 캐시를 남겨두면 파일을 나중에 채워 넣어도 재시도할 수 없으므로 비운다.
+      // 실패한 캐시를 남겨두면 다음 요청도 재시도할 수 없으므로 비운다.
       globalForParkingData.__parkingRecordsPromise = undefined;
       throw error;
     });
