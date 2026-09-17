@@ -18,8 +18,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "내 위치 근처 단속 이력",
-  description: "현재 위치 기준으로 서울시 주정차 단속 이력을 확인합니다.",
+  title: "내 위치 근처 주정차 단속 정보",
+  description:
+    "현재 위치 기준으로 상시 단속 카메라, 최근 단속 이력, 실시간 감지 정보를 확인합니다.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
